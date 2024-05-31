@@ -5,8 +5,7 @@ import com.google.inject.Provides;
 import javax.inject.Inject;
 
 import net.runelite.api.*;
-import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.ClientTick;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.*;
@@ -18,8 +17,6 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.util.Text;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.List;
 
@@ -33,10 +30,6 @@ public class ClanMemberListSortPlugin extends Plugin {
 
     final int WIDGET_HEIGHT = 15;
     final int UNK_CLAN_TAB_SCRIPT = 2859;
-
-    private Map<String, Integer> clanMemberInstants = new HashMap<>();
-    private Map<String, Integer> clanMemberInstantsInterval = new HashMap<>();
-
     private Widget clanMemberListHeaderWidget;
     private Widget clanMemberListsWidget;
     private Widget sortButton;
@@ -89,8 +82,7 @@ public class ClanMemberListSortPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onScriptPostFired(ScriptPostFired event) {
-        if (event.getScriptId() != UNK_CLAN_TAB_SCRIPT) return;
+    public void onGameTick(GameTick e) {
         if (clanMemberListsWidget == null) return;
 
         List<ClanMemberListEntry> entries = new ArrayList<>();
@@ -122,32 +114,11 @@ public class ClanMemberListSortPlugin extends Plugin {
                 entries.forEach(entry -> entry.updateClanRank(client));
                 comparator = Comparator.comparing(ClanMemberListEntry::getClanRank);
                 break;
-            case SORT_BY_ACTIVITY:
-                comparator = Comparator.comparing(ClanMemberListEntry::getActivity);
-                break;
         }
         entries.sort(config.reverseSort() ? comparator.reversed() : comparator);
 
         for (int i = 0; i < entries.size(); i++) {
             entries.get(i).setOriginalYAndRevalidate(WIDGET_HEIGHT * i);
-        }
-    }
-
-    @Subscribe
-    public void onChatMessage(ChatMessage chatMessage) {
-        if (chatMessage.getType() != ChatMessageType.CLAN_CHAT) {
-            return;
-        }
-        clanMemberInstants.put(Text.toJagexName(Text.removeTags(chatMessage.getName())), chatMessage.getTimestamp());
-    }
-
-    Instant mapUpdateInstant = Instant.now();
-    @Subscribe
-    public void onClientTick(ClientTick clientTick) {
-        Instant now = Instant.now();
-        if(Duration.between(mapUpdateInstant, now).toMillis() > config.activityUpdateInterval()){
-            mapUpdateInstant = now;
-            clanMemberInstantsInterval.putAll(clanMemberInstants);
         }
     }
 
@@ -200,9 +171,5 @@ public class ClanMemberListSortPlugin extends Plugin {
             sortButton.setAction(++index, type.name);
             type.actionIndex = index + 1;
         }
-    }
-
-    public Integer getPlayerActivity(String player){
-        return clanMemberInstants.get(player);
     }
 }
