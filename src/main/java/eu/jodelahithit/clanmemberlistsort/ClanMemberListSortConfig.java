@@ -38,18 +38,4 @@ public interface ClanMemberListSortConfig extends Config {
             description = ""
     )
     void reverseSort(boolean value);
-
-
-    @ConfigItem(
-            keyName = "activityUpdateInterval",
-            name = "Activity update interval",
-            description = "Delay between updating the clan member list when sorting on activity"
-    )
-    @Range(
-            min = 500
-    )
-    default int activityUpdateInterval()
-    {
-        return 6000;
-    }
 }
