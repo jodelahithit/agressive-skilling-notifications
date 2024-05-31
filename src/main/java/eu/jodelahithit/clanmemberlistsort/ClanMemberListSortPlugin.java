@@ -67,7 +67,7 @@ public class ClanMemberListSortPlugin extends Plugin {
 
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event) {
-        if (event.getGroupId() == WidgetInfo.CLAN_MEMBER_LIST.getGroupId()) {
+        if (event.getGroupId() == ComponentID.CLAN_MEMBERS >> 16) {
             initWidgets();
         }
     }
@@ -123,8 +123,8 @@ public class ClanMemberListSortPlugin extends Plugin {
     }
 
     private void initWidgets() {
-        clanMemberListsWidget = client.getWidget(WidgetInfo.CLAN_MEMBER_LIST);
-        clanMemberListHeaderWidget = client.getWidget(WidgetInfo.CLAN_MEMBER_LIST.getGroupId(), 0);
+        clanMemberListsWidget = client.getWidget(ComponentID.CLAN_MEMBERS);
+        clanMemberListHeaderWidget = client.getWidget(ComponentID.CLAN_MEMBERS >> 16, 0);
 
         if (clanMemberListHeaderWidget == null) return;
 
