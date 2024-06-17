@@ -207,6 +207,17 @@ public class WintertodtNotificationsPlugin extends Plugin {
             case WOODCUTTING_3A_AXE:
             case WOODCUTTING_CRYSTAL:
             case WOODCUTTING_TRAILBLAZER:
+            case WOODCUTTING_2H_BRONZE:
+	    case WOODCUTTING_2H_IRON:
+	    case WOODCUTTING_2H_STEEL:	
+	    case WOODCUTTING_2H_BLACK:
+	    case WOODCUTTING_2H_MITHRIL:
+	    case WOODCUTTING_2H_ADAMANT:
+	    case WOODCUTTING_2H_RUNE:
+	    case WOODCUTTING_2H_DRAGON:
+	    case WOODCUTTING_2H_3A:
+	    case WOODCUTTING_2H_CRYSTAL:
+	    case WOODCUTTING_2H_CRYSTAL_INACTIVE:
                 setActivity(WintertodtActivity.WOODCUTTING);
                 break;
 
