@@ -16,7 +16,7 @@ public class ClanMemberListEntry {
     Widget icon;
     Widget name;
     Widget world;
-    ClanRank clanRank = randomRank();
+    ClanRank clanRank = ClanRank.GUEST;
 
     public ClanMemberListEntry(ClanMemberListSortPlugin plugin, Widget opListener, Widget name, Widget world, Widget icon) {
         this.plugin = plugin;
@@ -24,11 +24,6 @@ public class ClanMemberListEntry {
         this.name = name;
         this.world = world;
         this.icon = icon;
-    }
-
-    private ClanRank randomRank() {
-        int pick = new Random().nextInt(ClanRank.values().length);
-        return ClanRank.values()[pick];
     }
 
     public void setOriginalYAndRevalidate(int y) {
@@ -75,7 +70,7 @@ public class ClanMemberListEntry {
         return world.getText();
     }
 
-    public ClanRank getClanRank() {
-        return clanRank;
+    public int getClanRankAsInt() {
+        return clanRank.getRank();
     }
 }

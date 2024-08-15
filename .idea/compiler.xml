@@ -10,6 +10,6 @@
         <module name="clan-member-list-sort.main" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="14" />
+    <bytecodeTargetLevel target="1.9" />
   </component>
 </project>

@@ -24,7 +24,7 @@ dependencies {
 }
 
 group = 'eu.jodelahithit.clanmemberlistsort'
-version = '1.8'
+version = '1.9'
 sourceCompatibility = '1.9'
 
 tasks.withType(JavaCompile) {

@@ -5,6 +5,7 @@ import com.google.inject.Provides;
 import javax.inject.Inject;
 
 import net.runelite.api.*;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetLoaded;
@@ -29,7 +30,6 @@ public class ClanMemberListSortPlugin extends Plugin {
     static final String CONFIG_GROUP = "clanmemberlistsorting";
 
     final int WIDGET_HEIGHT = 15;
-    final int UNK_CLAN_TAB_SCRIPT = 2859;
     private Widget clanMemberListHeaderWidget;
     private Widget clanMemberListsWidget;
     private Widget sortButton;
@@ -40,6 +40,9 @@ public class ClanMemberListSortPlugin extends Plugin {
     ClientThread clientThread;
     @Inject
     ClanMemberListSortConfig config;
+
+    private long lastSortTime = 0;
+    private static final long SORT_INTERVAL = 1000;
 
     @Provides
     ClanMemberListSortConfig getConfig(ConfigManager configManager) {
@@ -81,11 +84,21 @@ public class ClanMemberListSortPlugin extends Plugin {
         return null;
     }
 
+    private final Map<String, Long> lastChatTimestamps = new HashMap<>();
+    private List<ClanMemberListEntry> entries = new ArrayList<>();
+
     @Subscribe
     public void onGameTick(GameTick e) {
         if (clanMemberListsWidget == null) return;
 
-        List<ClanMemberListEntry> entries = new ArrayList<>();
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastSortTime < SORT_INTERVAL) {
+            return;
+        }
+        lastSortTime = currentTime;
+
+
+        entries = new ArrayList<>();
 
         //Widgets are always in the same order for other players: name, world, icon. OpListener widget location does not seem to have a reliable position
         //Local player doesn't have an opListener so we have to skip it
@@ -102,6 +115,10 @@ public class ClanMemberListSortPlugin extends Plugin {
             }
         }
 
+        sort();
+    }
+
+    private void sort(){
         Comparator<ClanMemberListEntry> comparator = null;
         switch (config.activeSortType()) {
             case SORT_BY_WORLD:
@@ -112,7 +129,10 @@ public class ClanMemberListSortPlugin extends Plugin {
                 break;
             case SORT_BY_RANK:
                 entries.forEach(entry -> entry.updateClanRank(client));
-                comparator = Comparator.comparing(ClanMemberListEntry::getClanRank);
+                comparator = Comparator.comparing(ClanMemberListEntry::getClanRankAsInt);
+                break;
+            case SORT_BY_RECENT_CHAT:
+                comparator = Comparator.comparing((ClanMemberListEntry entry) -> lastChatTimestamps.getOrDefault(entry.getPlayerName(), 0L)).reversed();
                 break;
         }
         entries.sort(config.reverseSort() ? comparator.reversed() : comparator);
@@ -120,6 +140,13 @@ public class ClanMemberListSortPlugin extends Plugin {
         for (int i = 0; i < entries.size(); i++) {
             entries.get(i).setOriginalYAndRevalidate(WIDGET_HEIGHT * i);
         }
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        if(event.getType() != ChatMessageType.CLAN_CHAT && event.getType() != ChatMessageType.CLAN_GUEST_CHAT) return;
+        String playerName =  Text.removeTags(event.getName()); //Fix for wise old man plugin icons
+        lastChatTimestamps.put(Text.toJagexName(playerName), System.currentTimeMillis());
     }
 
     private void initWidgets() {
@@ -150,6 +177,7 @@ public class ClanMemberListSortPlugin extends Plugin {
     private void handleSortButtonClick(ScriptEvent event) {
         config.reverseSort(!config.reverseSort());
         updateSortButtonSprite();
+        sort();
     }
 
     private void handleSortButtonOp(ScriptEvent event) {
@@ -171,5 +199,6 @@ public class ClanMemberListSortPlugin extends Plugin {
             sortButton.setAction(++index, type.name);
             type.actionIndex = index + 1;
         }
+        sort();
     }
 }
