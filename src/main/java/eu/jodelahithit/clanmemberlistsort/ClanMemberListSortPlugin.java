@@ -27,22 +27,26 @@ import java.util.List;
         tags = {"clan", "members", "list", "sorting", "alphabetically", "world", "rank", "role"}
 )
 public class ClanMemberListSortPlugin extends Plugin {
-    static final String CONFIG_GROUP = "clanmemberlistsorting";
+    public static final String CONFIG_GROUP = "clanmemberlistsorting";
+    private static final int WIDGET_HEIGHT = 15;
+    private static final long SORT_INTERVAL = 1000;
 
-    final int WIDGET_HEIGHT = 15;
     private Widget clanMemberListHeaderWidget;
     private Widget clanMemberListsWidget;
     private Widget sortButton;
 
     @Inject
     Client client;
+
     @Inject
     ClientThread clientThread;
+
     @Inject
     ClanMemberListSortConfig config;
 
     private long lastSortTime = 0;
-    private static final long SORT_INTERVAL = 1000;
+    private final Map<String, Long> lastChatTimestamps = new HashMap<>();
+    private final List<ClanMemberListEntry> entries = new ArrayList<>();
 
     @Provides
     ClanMemberListSortConfig getConfig(ConfigManager configManager) {
@@ -51,10 +55,8 @@ public class ClanMemberListSortPlugin extends Plugin {
 
     @Subscribe
     public void onConfigChanged(ConfigChanged configChanged) {
-        if (configChanged.getGroup().equals(CONFIG_GROUP)) {
-            if (configChanged.getKey().equals("reverseSort")) {
-                updateSortButtonSprite();
-            }
+        if (CONFIG_GROUP.equals(configChanged.getGroup()) && "reverseSort".equals(configChanged.getKey())) {
+            updateSortButtonSprite();
         }
     }
 
@@ -66,6 +68,7 @@ public class ClanMemberListSortPlugin extends Plugin {
     @Override
     public void shutDown() {
         if (clanMemberListHeaderWidget != null) clanMemberListHeaderWidget.deleteAllChildren();
+        lastChatTimestamps.clear();
     }
 
     @Subscribe
@@ -76,20 +79,19 @@ public class ClanMemberListSortPlugin extends Plugin {
     }
 
     private Widget GetOnOpListenerWidgetFromName(Widget[] widgets, String name) {
-        for (int i = 0; i < widgets.length; i++) {
-            if (widgets[i].getOnOpListener() != null) {
-                if (Text.removeTags(widgets[i].getName()).compareTo(name) == 0) return widgets[i];
+        for (Widget widget : widgets) {
+            if (widget.getOnOpListener() != null && Text.removeTags(widget.getName()).equals(name)) {
+                return widget;
             }
         }
         return null;
     }
 
-    private final Map<String, Long> lastChatTimestamps = new HashMap<>();
-    private List<ClanMemberListEntry> entries = new ArrayList<>();
-
     @Subscribe
     public void onGameTick(GameTick e) {
-        if (clanMemberListsWidget == null) return;
+        if (clanMemberListsWidget == null) {
+            return;
+        }
 
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastSortTime < SORT_INTERVAL) {
@@ -97,46 +99,56 @@ public class ClanMemberListSortPlugin extends Plugin {
         }
         lastSortTime = currentTime;
 
-
-        entries = new ArrayList<>();
+        entries.clear();
 
         //Widgets are always in the same order for other players: name, world, icon. OpListener widget location does not seem to have a reliable position
-        //Local player doesn't have an opListener so we have to skip it
-
+        //Local player doesn't have an opListener, so we have to skip it
         Widget[] widgets = clanMemberListsWidget.getChildren();
-        if (widgets == null) return;
+        if (widgets == null) {
+            return;
+        }
 
         for (int i = 0; i < widgets.length - 3; i++) {
-            int firstType = widgets[i].getType();
-            if (firstType == 3 || firstType == 5) {
-                if (widgets[i + 1].getType() == 4 && widgets[i + 2].getType() == 4 && widgets[i + 3].getType() == 5) {
-                    entries.add(new ClanMemberListEntry(this, GetOnOpListenerWidgetFromName(widgets, widgets[i + 1].getText()), widgets[i + 1], widgets[i + 2], widgets[i + 3]));
-                }
+            if (isClanMemberRow(widgets, i)) {
+                entries.add(new ClanMemberListEntry(
+                        this, GetOnOpListenerWidgetFromName(widgets, widgets[i + 1].getText()),
+                        widgets[i + 1],
+                        widgets[i + 2],
+                        widgets[i + 3]
+                ));
             }
         }
 
         sort();
     }
 
-    private void sort(){
+    private boolean isClanMemberRow(Widget[] widgets, int index) {
+        return (widgets[index].getType() == 3 || widgets[index].getType() == 5) &&
+                widgets[index + 1].getType() == 4 &&
+                widgets[index + 2].getType() == 4 &&
+                widgets[index + 3].getType() == 5;
+    }
+
+    private void sort() {
         Comparator<ClanMemberListEntry> comparator = null;
         switch (config.activeSortType()) {
             case SORT_BY_WORLD:
-                comparator = Comparator.comparing(ClanMemberListEntry::getWorld);
+                comparator = Comparator.comparing(ClanMemberListEntry::getWorld).reversed();
                 break;
             case SORT_BY_NAME:
                 comparator = Comparator.comparing(ClanMemberListEntry::getPlayerName);
                 break;
             case SORT_BY_RANK:
                 entries.forEach(entry -> entry.updateClanRank(client));
-                comparator = Comparator.comparing(ClanMemberListEntry::getClanRankAsInt);
+                comparator = Comparator.comparing(ClanMemberListEntry::getClanRankAsInt).reversed();
                 break;
             case SORT_BY_RECENT_CHAT:
                 comparator = Comparator.comparing((ClanMemberListEntry entry) -> lastChatTimestamps.getOrDefault(entry.getPlayerName(), 0L)).reversed();
                 break;
         }
-        entries.sort(config.reverseSort() ? comparator.reversed() : comparator);
-
+        if (comparator != null) {
+            entries.sort(config.reverseSort() ? comparator.reversed() : comparator);
+        }
         for (int i = 0; i < entries.size(); i++) {
             entries.get(i).setOriginalYAndRevalidate(WIDGET_HEIGHT * i);
         }
@@ -144,8 +156,10 @@ public class ClanMemberListSortPlugin extends Plugin {
 
     @Subscribe
     public void onChatMessage(ChatMessage event) {
-        if(event.getType() != ChatMessageType.CLAN_CHAT && event.getType() != ChatMessageType.CLAN_GUEST_CHAT) return;
-        String playerName =  Text.removeTags(event.getName()); //Fix for wise old man plugin icons
+        if (event.getType() != ChatMessageType.CLAN_CHAT && event.getType() != ChatMessageType.CLAN_GUEST_CHAT) {
+            return;
+        }
+        String playerName = Text.removeTags(event.getName()); //Fix for wise old man plugin icons
         lastChatTimestamps.put(Text.toJagexName(playerName), System.currentTimeMillis());
     }
 
@@ -153,12 +167,19 @@ public class ClanMemberListSortPlugin extends Plugin {
         clanMemberListsWidget = client.getWidget(ComponentID.CLAN_MEMBERS);
         clanMemberListHeaderWidget = client.getWidget(ComponentID.CLAN_MEMBERS >> 16, 0);
 
-        if (clanMemberListHeaderWidget == null) return;
+        if (clanMemberListHeaderWidget == null) {
+            return;
+        }
 
         clanMemberListHeaderWidget.deleteAllChildren();
 
         sortButton = clanMemberListHeaderWidget.createChild(-1, WidgetType.GRAPHIC);
-        reorderSortButton(config.activeSortType());
+        configureSortButton();
+        updateSortButtonSprite();
+        sortButton.revalidate();
+    }
+
+    private void configureSortButton() {
         sortButton.setOriginalY(2);
         sortButton.setOriginalX(2);
         sortButton.setOriginalHeight(16);
@@ -166,8 +187,7 @@ public class ClanMemberListSortPlugin extends Plugin {
         sortButton.setOnClickListener((JavaScriptCallback) this::handleSortButtonClick);
         sortButton.setOnOpListener((JavaScriptCallback) this::handleSortButtonOp);
         sortButton.setHasListener(true);
-        updateSortButtonSprite();
-        sortButton.revalidate();
+        reorderSortButton(config.activeSortType());
     }
 
     private void updateSortButtonSprite() {
@@ -195,9 +215,10 @@ public class ClanMemberListSortPlugin extends Plugin {
         sortButton.setAction(index, firstType.name);
         firstType.actionIndex = 1;
         for (SortType type : SortType.values()) {
-            if (type == firstType) continue;
-            sortButton.setAction(++index, type.name);
-            type.actionIndex = index + 1;
+            if (type != firstType) {
+                sortButton.setAction(++index, type.name);
+                type.actionIndex = index + 1;
+            }
         }
         sort();
     }
