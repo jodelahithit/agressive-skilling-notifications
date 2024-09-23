@@ -147,7 +147,8 @@ public class Constants {
             WOODCUTTING_2H_ADAMANT,
             WOODCUTTING_2H_RUNE,
             WOODCUTTING_2H_DRAGON,
-            WOODCUTTING_2H_3A
+            WOODCUTTING_2H_3A,
+            WOODCUTTING_2H_CRYSTAL
     );
 
     static final Set<Integer> FLETCHING_ANIMATIONS = ImmutableSet.of(
