@@ -87,22 +87,27 @@ public class ClanMemberListSortPlugin extends Plugin {
         return null;
     }
 
-    @Subscribe
-    public void onGameTick(GameTick e) {
+@Subscribe
+public void onGameTick(GameTick e) {
+    if (clanMemberListsWidget == null) {
+        return;
+    }
+
+    long currentTime = System.currentTimeMillis();
+    if (currentTime - lastSortTime < SORT_INTERVAL) {
+        return;
+    }
+
+    // Delay sorting to the next game tick after the widget updates
+    clientThread.invokeLater(() -> {
         if (clanMemberListsWidget == null) {
             return;
         }
 
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastSortTime < SORT_INTERVAL) {
-            return;
-        }
-        lastSortTime = currentTime;
-
         entries.clear();
 
-        //Widgets are always in the same order for other players: name, world, icon. OpListener widget location does not seem to have a reliable position
-        //Local player doesn't have an opListener, so we have to skip it
+        // Widgets are always in the same order for other players: name, world, icon.
+        // Local player doesn't have an opListener, so we have to skip it.
         Widget[] widgets = clanMemberListsWidget.getChildren();
         if (widgets == null) {
             return;
@@ -119,8 +124,12 @@ public class ClanMemberListSortPlugin extends Plugin {
             }
         }
 
+        // Sort entries only after widgets have been fully initialized
         sort();
-    }
+        lastSortTime = currentTime;
+    });
+}
+
 
     private boolean isClanMemberRow(Widget[] widgets, int index) {
         return (widgets[index].getType() == 3 || widgets[index].getType() == 5) &&
