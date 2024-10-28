@@ -78,7 +78,7 @@ public class ClanMemberListSortPlugin extends Plugin {
         }
     }
 
-    private Widget GetOnOpListenerWidgetFromName(Widget[] widgets, String name) {
+    private Widget getOnOpListenerWidgetFromName(Widget[] widgets, String name) {
         for (Widget widget : widgets) {
             if (widget.getOnOpListener() != null && Text.removeTags(widget.getName()).equals(name)) {
                 return widget;
