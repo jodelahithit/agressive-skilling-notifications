@@ -97,30 +97,39 @@ public class ClanMemberListSortPlugin extends Plugin {
         if (currentTime - lastSortTime < SORT_INTERVAL) {
             return;
         }
-        lastSortTime = currentTime;
 
-        entries.clear();
-
-        //Widgets are always in the same order for other players: name, world, icon. OpListener widget location does not seem to have a reliable position
-        //Local player doesn't have an opListener, so we have to skip it
-        Widget[] widgets = clanMemberListsWidget.getChildren();
-        if (widgets == null) {
-            return;
-        }
-
-        for (int i = 0; i < widgets.length - 3; i++) {
-            if (isClanMemberRow(widgets, i)) {
-                entries.add(new ClanMemberListEntry(
-                        this, GetOnOpListenerWidgetFromName(widgets, widgets[i + 1].getText()),
-                        widgets[i + 1],
-                        widgets[i + 2],
-                        widgets[i + 3]
-                ));
+        // Delay sorting to the next game tick after the widget updates
+        clientThread.invokeLater(() -> {
+            if (clanMemberListsWidget == null) {
+                return;
             }
-        }
 
-        sort();
+            entries.clear();
+
+            // Widgets are always in the same order for other players: name, world, icon.
+            // Local player doesn't have an opListener, so we have to skip it.
+            Widget[] widgets = clanMemberListsWidget.getChildren();
+            if (widgets == null) {
+                return;
+            }
+
+            for (int i = 0; i < widgets.length - 3; i++) {
+                if (isClanMemberRow(widgets, i)) {
+                    entries.add(new ClanMemberListEntry(
+                            this, getOnOpListenerWidgetFromName(widgets, widgets[i + 1].getText()),
+                            widgets[i + 1],
+                            widgets[i + 2],
+                            widgets[i + 3]
+                    ));
+                }
+            }
+
+            // Sort entries only after widgets have been fully initialized
+            sort();
+            lastSortTime = currentTime;
+        });
     }
+
 
     private boolean isClanMemberRow(Widget[] widgets, int index) {
         return (widgets[index].getType() == 3 || widgets[index].getType() == 5) &&
